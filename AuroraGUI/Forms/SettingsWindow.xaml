@@ -29,12 +29,25 @@
                            Style="{StaticResource MaterialDesignBody2TextBlock}"
                            Foreground="#FF757575" Grid.RowSpan="2">
                     基本设置
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Expert Mode" FontStyle="Italic" Click="Expert_OnClick"/>
+                            <MenuItem Header="在文本编辑器中打开" Click="OpenInTextEditor_OnClick"/>
+                            <MenuItem Header="查阅日志" Click="OpenLog_OnClick"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
                 </TextBlock>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,10,12,18" HorizontalAlignment="Right" Grid.RowSpan="2">
                     <Button Click="CleanCache_OnClick"
                             HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolForegroundButton}" 
                             Margin="0,-5,0,-6" Height="Auto" Opacity="0.5" ToolTip="刷新 DNS 缓存">
                         <materialDesign:PackIcon Kind="Broom" Height="19" />
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="刷新内置 DNS 缓存" Click="CleanCacheInside_OnClick"/>
+                                <MenuItem Header="刷新系统 DNS 缓存" Click="CleanCacheSys_OnClick"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
                     </Button>
                 </StackPanel>
 
@@ -43,18 +56,23 @@
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
                            Style="{StaticResource MaterialDesignBody2TextBlock}">
                     默认记录日志
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <CheckBox Name="AutoClean" Content="退出时自动清理日志(仅保留当日)"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
                 </TextBlock>
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <ToggleButton Name="Log" 
                         Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                         VerticalAlignment="Center" Margin="0,5,0,-5" />
+                         VerticalAlignment="Center" Margin="0,5,0,-5" Cursor="Hand" />
                 </StackPanel>
 
                 <Separator Grid.Row="3" Style="{StaticResource MaterialDesignSeparator}" />
                 <TextBlock Grid.Row="4" Margin="16,6,0,4"  
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
                            Style="{StaticResource MaterialDesignBody2TextBlock}" >
-                    设定为登录时自启动（需要管理员权限）
+                    设定为登录时自启动
                 </TextBlock>
                 <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <Button Name="RunAsAdmin" Click="RunAsAdmin_OnClick" Visibility="Collapsed"
@@ -63,7 +81,7 @@
                         <materialDesign:PackIcon Kind="ShieldOutline"/>
                     </Button>
                     <ToggleButton Name="RunWithStart" 
-                                  Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                  Style="{StaticResource MaterialDesignSwitchToggleButton}" Cursor="Hand"
                                   VerticalAlignment="Center" Margin="0,5,0,-5" Checked="RunWithStart_Checked" Unchecked="RunWithStart_Unchecked" />
                 </StackPanel>
 
@@ -74,7 +92,7 @@
                     启用 DNS 临时缓存
                 </TextBlock>
                 <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
-                    <ToggleButton Name="DNSCache"
+                    <ToggleButton Name="DNSCache" Cursor="Hand"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}"
                          Margin="0,5,0,-5"  />
                 </StackPanel>
@@ -93,11 +111,11 @@
                         <Button.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="编辑列表" Click="OpenList_OnClick"/>
-                                <MenuItem Header="编辑列表订阅" Click="OpenSubList_OnClick"/>
+                                <MenuItem Header="编辑订阅列表" Click="OpenSubList_OnClick"/>
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <ToggleButton Name="WhiteList"
+                    <ToggleButton Name="WhiteList" Cursor="Hand"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}" Height="25" Margin="0,0,0,-0.2" VerticalAlignment="Top"
                           />
                 </StackPanel>
@@ -129,16 +147,27 @@
                 <TextBlock Grid.Row="2" Margin="16,6,0,4" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
                            Style="{StaticResource MaterialDesignBody2TextBlock}">
-                    辅 DNS 服务器
+                    <Run Text="备用 DNS 服务器"/>
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Click="ImportDNS_OnClick" Header="导入自定义备用 DNS 服务器列表"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
                 </TextBlock>
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <Button Click="SpeedTestDNS_OnClick"
                             HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolForegroundButton}" 
-                            Margin="0,-2,2,-6.2" Height="Auto">
-                        <materialDesign:PackIcon Kind="FlagOutline" ToolTip="测速" />
+                            Margin="0,-2,2,-6.2" Height="Auto" ToolTip="测速">
+                        <materialDesign:PackIcon Kind="FlagOutline"/>
                     </Button>
-                    <ComboBox Name="SecondDNS" IsEditable="True" materialDesign:HintAssist.Hint="1.1.1.1"
-                        Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="110" />
+                    <ComboBox MaxDropDownHeight="220" Name="SecondDNS" IsEditable="True" materialDesign:HintAssist.Hint="1.1.1.1"
+                        Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="110" >
+                        <ComboBoxItem Content="1.1.1.1"></ComboBoxItem>
+                        <ComboBoxItem Content="1.0.0.1"></ComboBoxItem>
+                        <ComboBoxItem Content="8.8.8.8"></ComboBoxItem>
+                        <ComboBoxItem Content="9.9.9.9"></ComboBoxItem>
+                        <ComboBoxItem Content="208.67.222.222"></ComboBoxItem>
+                    </ComboBox>
                 </StackPanel>
 
                 <Separator Grid.Row="3" Style="{StaticResource MaterialDesignSeparator}" />
@@ -148,7 +177,7 @@
                     自定义 EDNS Client Subnet IP
                 </TextBlock>
                 <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
-                    <ToggleButton Name="EDNSCustomize"
+                    <ToggleButton Name="EDNSCustomize" Cursor="Hand"
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   VerticalAlignment="Center" Margin="5,5,5,-5.2" />
                     <TextBox Name="EDNSClientIP" IsEnabled="{Binding ElementName=EDNSCustomize, Path=IsChecked}" 
@@ -162,7 +191,7 @@
                     自定义监听 IP 地址
                 </TextBlock>
                 <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
-                    <ToggleButton Name="ListenIPCustomize" IsChecked="False"
+                    <ToggleButton Name="ListenIPCustomize" IsChecked="False" Cursor="Hand" Unchecked="ListenIPCustomize_OnUnchecked"
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   VerticalAlignment="Center" Margin="5,2,5,-2" />
                     <TextBox Name="ListenIP" IsEnabled="{Binding ElementName=ListenIPCustomize, Path=IsChecked}" 
@@ -175,7 +204,7 @@
         <Button Click="ButtonSave_OnClick"
             Style="{StaticResource MaterialDesignFlatButton}" VerticalAlignment="Center"
             ToolTip="保存设置" Margin="355,600,16.2,8" >
-            保存
+            确定
         </Button>
 
         <Button Click="ListL10N_OnClick"  Name="L10N"
@@ -186,7 +215,7 @@
             Margin="143,600,205.2,8" Content="情景模式" Foreground="#FFCB4B16" />
         <materialDesign:Snackbar Name="Snackbar"
                                  MessageQueue="{materialDesign:MessageQueue}" VerticalAlignment="Top" VerticalContentAlignment="Top"
-                                 HorizontalContentAlignment="Center" Opacity="0.85" Background="Black" Width="365">
+                                 HorizontalContentAlignment="Center" Opacity="0.85" Background="Black" Width="370">
         </materialDesign:Snackbar>
         <materialDesign:Card materialDesign:ShadowAssist.ShadowDepth="Depth1"
                              Padding="0"
@@ -207,34 +236,57 @@
                 <TextBlock Grid.Row="0" Margin="16,10,0,16" 
                            VerticalAlignment="Center" HorizontalAlignment="Left"
                            Style="{StaticResource MaterialDesignBody2TextBlock}"
-                           Foreground="#FF757575" Grid.RowSpan="2"><Run Text="HTTPS 查询设置"/></TextBlock>
+                           Foreground="#FF757575" Grid.RowSpan="2">
+                    <Run Text="HTTPS 查询设置"/>
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <CheckBox Name="DNSMsg" Content="启用 DNS-Message 查询 (RFC8484)"/>
+                            <CheckBox Name="HTTP2Client" Content="启用 HTTP2 支持 (实验性、不稳定)"/>
+                            <CheckBox Name="MinimumTTL" Content="Minimum TTL 重写 (实验性)"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
 
                 <Separator Grid.Row="1" Style="{StaticResource MaterialDesignSeparator}" />
                 <TextBlock Grid.Row="2" Margin="16,6,0,4"  
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}"><Run Text="主 DNS over HTTPS 查询接口"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}">
+                    <Run Text="主 DNS over HTTPS 服务器"/>
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Click="ImportDoH_OnClick" Header="导入自定义 DNS over HTTPS 服务器列表"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <Button Click="SpeedTestDoH_OnClick"
                             HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolForegroundButton}" 
-                            Margin="0,-2,2,-6.2" Height="Auto">
-                        <materialDesign:PackIcon Kind="FlagOutline" ToolTip="测速" />
+                            Margin="0,-2,2,-6.2" Height="Auto" ToolTip="测速">
+                        <materialDesign:PackIcon Kind="FlagOutline"/>
                     </Button>
                     <ComboBox x:Name="DoHUrlText" IsEditable="True"
-                        materialDesign:HintAssist.Hint="https://1.1.1.1/dns-query" Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="160" />
+                        materialDesign:HintAssist.Hint="https://1.1.1.1/dns-query" Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="160" >
+                        <ComboBoxItem Content="https://1.1.1.1/dns-query"></ComboBoxItem>
+                        <ComboBoxItem Content="https://1.0.0.1/dns-query"></ComboBoxItem>
+                        <ComboBoxItem Content="https://dns.google/resolve"></ComboBoxItem>
+                        <ComboBoxItem Content="https://dns.cloudflare.com/dns-query"></ComboBoxItem>
+                        <ComboBoxItem Content="https://dns.quad9.net/dns-query"></ComboBoxItem>
+                    </ComboBox>
                 </StackPanel>
 
                 <Separator Grid.Row="3" Style="{StaticResource MaterialDesignSeparator}" />
                 <TextBlock Grid.Row="4" Margin="16,6,0,4"  
                            VerticalAlignment="Center"  HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}"><Run Text="辅 DNS over HTTPS 查询接口"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"><Run Text="辅 DNS over HTTPS 服务器"/></TextBlock>
                 <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <Button Click="SpeedTestDoH_OnClick"
                             HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolForegroundButton}" 
-                            Margin="0,-2,2,-6.2" Height="Auto">
-                        <materialDesign:PackIcon Kind="FlagOutline" ToolTip="测速" />
+                            Margin="0,-2,2,-6.2" Height="Auto" ToolTip="测速">
+                        <materialDesign:PackIcon Kind="FlagOutline"/>
                     </Button>
                     <ComboBox x:Name="SecondDoHUrlText" IsEditable="True"
-                              materialDesign:HintAssist.Hint="https://1.0.0.1/dns-query" Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="160" />
+                              materialDesign:HintAssist.Hint="https://1.0.0.1/dns-query" Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="160">
+                    </ComboBox>
                 </StackPanel>
 
                 <Separator Grid.Row="5" Style="{StaticResource MaterialDesignSeparator}" />
@@ -243,7 +295,7 @@
                            Style="{StaticResource MaterialDesignBody2TextBlock}"><Run Text="使用代理 (仅支持 HTTP 代理)"/></TextBlock>
                 <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="16 0 16 8" HorizontalAlignment="Right">
                     <ToggleButton x:Name="Proxy" Checked="Proxy_OnChecked" Unchecked="Proxy_OnUnchecked"
-                        Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                        Style="{StaticResource MaterialDesignSwitchToggleButton}" Cursor="Hand"
                          VerticalAlignment="Center" Margin="0,5,0,-5" />
                 </StackPanel>
 
@@ -260,9 +312,5 @@
                 </StackPanel>
             </Grid>
         </materialDesign:Card>
-        <Button Click="Expert_OnClick" IsEnabled="False"
-            HorizontalAlignment="Right" Style="{StaticResource MaterialDesignToolForegroundButton}" 
-            Margin="0,0,409.2,633.8" Height="Auto" Width="34">
-        </Button>
     </Grid>
 </Window>

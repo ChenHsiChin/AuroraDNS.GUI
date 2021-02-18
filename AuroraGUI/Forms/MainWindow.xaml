@@ -20,7 +20,7 @@
         Title="Aurora DNS" 
         MaxHeight="200" MaxWidth="300" MinHeight="200" MinWidth="300"
         Height="200" Width="300" Loaded="Window_Loaded"
-        StateChanged="Window_StateChanged" ResizeMode="NoResize" WindowStyle="None" Closed="Window_Closed">
+        StateChanged="Window_StateChanged" ResizeMode="NoResize" WindowStyle="None">
 
     <WindowChrome.WindowChrome>
         <WindowChrome 
@@ -43,13 +43,18 @@
             materialDesign:ShadowAssist.ShadowDepth="Depth1" Margin="0,0,0,0" Grid.ColumnSpan="2" Height="55">
                 <DockPanel>
                     <TextBlock
-                    VerticalAlignment="Center" HorizontalAlignment="Center" 
+                    VerticalAlignment="Center" HorizontalAlignment="Left" 
                     FontSize="20" FontWeight="Medium"
-                    DockPanel.Dock="Left" Margin="0,0,0,-0.8" >
-                    <Italic>A</Italic>uroraDNS
+                    DockPanel.Dock="Left" Margin="0,0,0,-1" >
+                        <TextBlock.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Name="TitleTextItem" FontSize="12" Header="User-Agent : AuroraDNSC/0.1" IsEnabled="False" FontStyle="Italic"/>
+                            </ContextMenu>
+                        </TextBlock.ContextMenu>
+                        <Italic>A</Italic>uroraDNS
                     </TextBlock>
 
-                    <ToggleButton x:Name="DnsEnable"
+                    <ToggleButton x:Name="DnsEnable" Cursor="Hand"
                     Style="{StaticResource MaterialDesignSwitchAccentToggleButton}"
                     VerticalAlignment="Center"
                     ToolTip="启用 / 停用"
@@ -64,19 +69,19 @@
             </materialDesign:ColorZone>
             <Grid Name="ControlGrid" Margin="47,67,47,57" Grid.ColumnSpan="2" Grid.Column="0" Opacity="0.95">
 
-                <ToggleButton x:Name="IsSysDns"
+                <ToggleButton x:Name="IsSysDns" Cursor="Hand" Click="IsSysDns_OnClick"
                 Style="{StaticResource MaterialDesignFlatPrimaryToggleButton}"
                 Height="40"
                 Width="40"
                 ToolTip="设为系统 DNS"
-                IsChecked="False" HorizontalAlignment="Left" Checked="IsSysDns_Checked" Unchecked="IsSysDns_Unchecked" >
+                IsChecked="False" HorizontalAlignment="Left">
                     <materialDesign:PackIcon
                     Kind="Dns"
                     Height="20"
                     Width="20"  />
                 </ToggleButton>
 
-                <ToggleButton x:Name="IsGlobal"
+                <ToggleButton x:Name="IsGlobal" Cursor="Hand"
                 Style="{StaticResource MaterialDesignActionToggleButton}"
                 Height="40"
                 Width="40"
@@ -98,7 +103,7 @@
 
                 </ToggleButton>
 
-                <ToggleButton x:Name="IsLog"
+                <ToggleButton x:Name="IsLog" Cursor="Hand"
                           Style="{StaticResource MaterialDesignFlatPrimaryToggleButton}"
                           Height="40"
                           Width="40"
@@ -121,9 +126,9 @@
         </Grid>
 
         <materialDesign:Snackbar Name="Snackbar"
-            Grid.Column="0"
+            Grid.Column="0" VerticalAlignment="Bottom"
             MessageQueue="{materialDesign:MessageQueue}" 
-            HorizontalContentAlignment="Center" Opacity="0.85" Background="Black" Grid.ColumnSpan="2" Margin="6,0">
+            HorizontalContentAlignment="Center" Opacity="0.95" Background="Black" Grid.ColumnSpan="2" Margin="0,0,0,40">
         </materialDesign:Snackbar>
     </Grid>
 </Window>

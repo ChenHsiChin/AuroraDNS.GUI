@@ -19,7 +19,7 @@
         </Grid>
         <Label Grid.Column="0" HorizontalAlignment="Center" Margin="0,731,1.2,-21" FontSize="14"
             VerticalAlignment="Top" Foreground="LightCoral" Width="442" HorizontalContentAlignment="Center" Height="30" Content="【请注意,您的改动可能将导致失去质量保证】" />
-        <materialDesign:Card Name="Card"   materialDesign:ShadowAssist.ShadowDepth="Depth0"
+        <materialDesign:Card Name="Card" materialDesign:ShadowAssist.ShadowDepth="Depth1"
             Padding="0" Background="#FFFFFF" Opacity="0.6"
             Margin="5,245,5.2,0" Grid.Column="0" Height="478">
             <Grid Margin="0,1,0,0">
@@ -61,7 +61,7 @@
                            Grid.Column="0" Margin="0,7.6,0.6,6.6"/>
                 <TextBlock Grid.Row="2" Margin="16,5.4,0,2.4" 
                     VerticalAlignment="Center" HorizontalAlignment="Left" 
-                    Style="{StaticResource MaterialDesignBody2TextBlock}" Grid.Column="0" Height="17" Width="228"><Run Text="导入自定义 DNS over HTTPS 接口列表"/></TextBlock>
+                    Style="{StaticResource MaterialDesignBody2TextBlock}" Grid.Column="0" Height="17" Width="250"><Run Text="导入自定义 DNS over HTTPS 服务器列表"/></TextBlock>
                 <StackPanel Grid.Row="2" VerticalAlignment="Center" Orientation="Horizontal" Margin="0,1.4,16.8,8.6" HorizontalAlignment="Right" Width="30" Height="30" Grid.RowSpan="2" >
                     <Button Click="ReadDoHListButton_OnClick"
                         HorizontalAlignment="Center" Style="{StaticResource MaterialDesignToolForegroundButton}" 
@@ -72,9 +72,9 @@
 
                 <Separator Grid.Row="3" Style="{StaticResource MaterialDesignSeparator}" 
                            Grid.Column="0" Margin="0,1.6,0.6,22.4" Grid.RowSpan="2" Height="Auto" />
-                <TextBlock Grid.Row="4" Grid.Column="0" Margin="16,4.4,0,4.4"  
+                <TextBlock Grid.Row="4" Grid.Column="0" Margin="16,4.4,0,3.4"  
                     VerticalAlignment="Center" HorizontalAlignment="Left" 
-                    Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="178" ><Run Text="导入自定义辅 DNS 服务器列表"/></TextBlock>
+                    Style="{StaticResource MaterialDesignBody2TextBlock}" Height="17" Width="202" ><Run Text="导入自定义备用 DNS 服务器列表"/></TextBlock>
                 <StackPanel Grid.Row="4" VerticalAlignment="Center" Orientation="Horizontal" Margin="0,3.4,16.8,6.6" HorizontalAlignment="Right" Width="30" Height="30" Grid.RowSpan="2">
                     <Button Click="ReadDNSListButton_OnClick"
                         HorizontalAlignment="Center" Style="{StaticResource MaterialDesignToolForegroundButton}" 
@@ -89,9 +89,9 @@
                     VerticalAlignment="Center" HorizontalAlignment="Left" 
                     Style="{StaticResource MaterialDesignBody2TextBlock}" Grid.Column="0" Height="17" Width="329">忽略 TLS 证书安全错误 / 允许自签名证书【强烈不建议】</TextBlock>
                 <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,0.4,16.8,8.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton Name="AllowSelfSigned"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                        Margin="0,5,0,-5"  />
+                        Margin="0,5,0,-5" Click="AllowSelfSigned_OnClick"  />
                 </StackPanel>
 
                 <Separator Grid.Row="7" Style="{StaticResource MaterialDesignSeparator}" 
@@ -100,7 +100,7 @@
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
                            Style="{StaticResource MaterialDesignBody2TextBlock}" Grid.Column="0" Height="16" Width="221">极客佐料 (在日志中展示更多技术细节)</TextBlock>
                 <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="0,0.4,16.8,7.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton  IsEnabled="False"
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   Margin="0,5,0,-5"  />
                 </StackPanel>
@@ -109,7 +109,7 @@
 
                 <TextBlock Grid.Row="10" Grid.Column="0" Margin="16,6.4,0,2.4" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="138">导入 PRChina 域名列表</TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="148">导入 ChinaList 域名列表</TextBlock>
                 <StackPanel Grid.Row="10" VerticalAlignment="Center" Orientation="Horizontal" Margin="0,3.4,16.8,6.6" HorizontalAlignment="Right" Width="30" Height="30" Grid.RowSpan="2">
                     <Button 
                         HorizontalAlignment="Center" Style="{StaticResource MaterialDesignToolForegroundButton}" 
@@ -122,9 +122,9 @@
                            Grid.Column="0" Margin="0,1.6,0.6,22.4" Grid.RowSpan="2" Height="Auto"/>
                 <TextBlock Grid.Row="12" Margin="16,5.4,0,2.4" 
                     VerticalAlignment="Center" HorizontalAlignment="Left" 
-                    Style="{StaticResource MaterialDesignBody2TextBlock}"  Grid.Column="0" Height="17" Width="325"><Run Text="PRChina 名单【将使用 DNSPOD D+ HTTPDNS 解析】"/></TextBlock>
+                    Style="{StaticResource MaterialDesignBody2TextBlock}"  Grid.Column="0" Height="17" Width="325"><Run Text="ChinaList【将使用 DNSPOD D+ HTTPDNS 解析】"/></TextBlock>
                 <StackPanel Grid.Row="12" Orientation="Horizontal" Margin="0,0.4,16.8,8.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton Click="ChinaList_OnClick" Name="ChinaList"
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   Margin="0,5,0,-5"  />
                 </StackPanel>
@@ -133,9 +133,9 @@
                            Grid.Column="0" Margin="0,1.6,0.6,22.4" Grid.RowSpan="2" Height="Auto"/>
                 <TextBlock Grid.Row="14" Grid.Column="0" Margin="16,6.4,0,2.4" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="184" ><Run Text="向我展示 HTTP 响应状态码异常"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="184" ><Run Text="弹出通知 HTTP 响应状态码异常"/></TextBlock>
                 <StackPanel Grid.Row="14" Orientation="Horizontal" Margin="0,0.4,16.8,7.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}" Margin="0,5,0,-5"
                     />
                 </StackPanel>
@@ -144,9 +144,9 @@
                            Grid.Column="0" Margin="0,2.6,0.6,21.4" Grid.RowSpan="2" Height="Auto"  />
                 <TextBlock Grid.Row="16" Grid.Column="0" Margin="16,7.4,0,1.4" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="117" ><Run Text="拒绝响应重定向请求"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="16" Width="117" ><Run Text="不允许重定向请求"/></TextBlock>
                 <StackPanel Grid.Row="16" Orientation="Horizontal" Margin="0,0.4,16.8,8.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton  Name="NotAllowAutoRedirect" Click="NotAllowAutoRedirect_OnClick"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}" Margin="0,5,0,-5"
                     />
                 </StackPanel>
@@ -155,9 +155,9 @@
                            Grid.Column="0" Margin="0,2.6,0.6,21.4" Grid.RowSpan="2" Height="Auto" />
                 <TextBlock Grid.Row="18" Grid.Column="0" Margin="16,6.4,0,1.4" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="17" Width="238"><Run Text="仅IPv4 (不解析AAAA记录, 与仅IPv6互斥)"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="17" Width="277"><Run Text="停用IPv6 (不解析AAAA记录, 与停用IPv4互斥)"/></TextBlock>
                 <StackPanel Grid.Row="18" Orientation="Horizontal" Margin="0,0.4,16.8,8.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton Click="DisabledV6_OnClick" Name="DisabledV6"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}" Margin="0,5,0,-5"
                     />
                 </StackPanel>
@@ -165,9 +165,9 @@
                            Grid.Column="0" Margin="0,2.6,0.6,21.4" Grid.RowSpan="2" Height="Auto" />
                 <TextBlock Grid.Row="20" Grid.Column="0" Margin="16,7.4,0,14.6" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" 
-                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="18" Width="213" Grid.RowSpan="2"><Run Text="仅IPv6 (不解析A记录, 与仅IPv4互斥)"/></TextBlock>
+                           Style="{StaticResource MaterialDesignBody2TextBlock}" Height="18" Width="273" Grid.RowSpan="2"><Run Text="停用IPv4 (不解析A记录, 与停用IPv6互斥)"/></TextBlock>
                 <StackPanel Grid.Row="20" Orientation="Horizontal" Margin="0,0.4,16.8,8.4" HorizontalAlignment="Right" Width="34">
-                    <ToggleButton 
+                    <ToggleButton Click="DisabledV4_OnClick" Name="DisabledV4"
                         Style="{StaticResource MaterialDesignSwitchToggleButton}" Margin="0,5,0,-5"
                     />
                 </StackPanel>
@@ -180,10 +180,10 @@
                     自定义 TLS 版本
                 </TextBlock>
                 <StackPanel Grid.Row="22" Orientation="Horizontal" Margin="0,0.4,16.8,7.4" HorizontalAlignment="Right" Width="154">
-                    <ToggleButton IsChecked="False"
+                    <ToggleButton IsChecked="False" IsEnabled="False"
                                   Style="{StaticResource MaterialDesignSwitchToggleButton}"
                                   VerticalAlignment="Center" Margin="5,2,5,-2" />
-                    <ComboBox Name="TLSVer" IsEditable="False"
+                    <ComboBox Name="TLSVer" IsEditable="False" IsEnabled="False"
                               Height="30" Margin="0,-5,0,-8.2" VerticalAlignment="Top" Width="110" />
                 </StackPanel>
             </Grid>

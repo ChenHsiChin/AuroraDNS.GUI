@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Text.RegularExpressions;
 using System.Windows;
+using ARSoft.Tools.Net;
+using ARSoft.Tools.Net.Dns;
 using AuroraGUI.DnsSvr;
 using MojoUnity;
 
@@ -10,38 +11,61 @@ namespace AuroraGUI.Tools
 {
     static class IpTools
     {
-        public static bool IsIp(string ip)
-        {
-            return Regex.IsMatch(ip, @"^((2[0-4]\d|25[0-5]|[01]?\d\d?)\.){3}(2[0-4]\d|25[0-5]|[01]?\d\d?)$");
-        }
+        public static bool IsIp(string ip) => IPAddress.TryParse(ip,out _);
 
-        public static bool InSameLaNet(IPAddress ipA, IPAddress ipB)
-        {
-            return ipA.GetHashCode() % 65536L == ipB.GetHashCode() % 65536L;
-        }
+        public static bool InSameLaNet(IPAddress ipA, IPAddress ipB) =>
+            ipA.GetHashCode() % 65536L == ipB.GetHashCode() % 65536L;
 
         public static string GetLocIp()
         {
+            var tcpClient = new TcpClient { ReceiveTimeout = 2500, SendTimeout = 2500 };
+            var addressUri = new Uri(DnsSettings.HttpsDnsUrl);
             try
             {
-                using (TcpClient tcpClient = new TcpClient())
-                {
-                    if (DnsSettings.HttpsDnsUrl.Split('/')[2].Contains(":"))
-                        tcpClient.Connect(DnsSettings.HttpsDnsUrl.Split('/', ':')[3],
-                            Convert.ToInt32(DnsSettings.HttpsDnsUrl.Split('/', ':')[4]));
-                    else
-                        tcpClient.Connect(DnsSettings.HttpsDnsUrl.Split('/')[2], 443);
-
-                    return ((IPEndPoint) tcpClient.Client.LocalEndPoint).Address.ToString();
-                }
+                tcpClient.Connect(addressUri.DnsSafeHost, addressUri.Port);
+                return ((IPEndPoint) tcpClient.Client.LocalEndPoint).Address.ToString();
             }
             catch (Exception e)
             {
                 MyTools.BackgroundLog("Try Connect:" + e);
-                return MessageBox.Show(
-                           $"Error: 尝试连接远端 DNS over HTTPS 服务器发生错误(DoH-Server){Environment.NewLine}点击“确定”以重试连接,点击“取消”放弃连接使用预设地址。{Environment.NewLine}Original error: "
-                           + e.Message, @"错误", MessageBoxButton.OKCancel) == MessageBoxResult.OK
-                    ? GetLocIp() : "192.168.0.1";
+                try
+                {
+                    try
+                    {
+                        tcpClient.Connect(ResolveNameIpAddress(addressUri.DnsSafeHost), addressUri.Port);
+                        return ((IPEndPoint)tcpClient.Client.LocalEndPoint).Address.ToString();
+                    }
+                    catch
+                    {
+                        addressUri = new Uri(DnsSettings.SecondHttpsDnsUrl);
+                        tcpClient.Connect(ResolveNameIpAddress(addressUri.DnsSafeHost), addressUri.Port);
+                        return ((IPEndPoint)tcpClient.Client.LocalEndPoint).Address.ToString();
+                    }
+                }
+                catch
+                {
+                    return MessageBox.Show(
+                        $"Error: 尝试连接远端 DNS over HTTPS 服务器发生错误{Environment.NewLine}点击“确定”以重试连接,点击“取消”放弃连接使用备用 DNS 服务器测试。" +
+                        $"{Environment.NewLine}Original error: " + e.Message, @"错误", MessageBoxButton.OKCancel) == MessageBoxResult.OK
+                        ? GetLocIp() : GetLocIpUdp();
+                }
+            }
+        }
+
+        public static string GetLocIpUdp()
+        {
+            try
+            {
+                var udpClient = new UdpClient();
+                udpClient.Connect(DnsSettings.SecondDnsIp, 53);
+                return ((IPEndPoint)udpClient.Client.LocalEndPoint).Address.ToString();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(
+                    $"Error: 尝试连接远端备用 DNS 服务器失败，请检查您的设置与互联网连接。" +
+                    $"{Environment.NewLine}Original error: " + e.Message, @"错误");
+                return "192.168.1.1";
             }
         }
 
@@ -49,14 +73,75 @@ namespace AuroraGUI.Tools
         {
             try
             {
-                return new WebClient().DownloadString(UrlSettings.WhatMyIpApi).Trim();
+                return new MyCurl.MWebClient().DownloadString(UrlSettings.WhatMyIpApi).Trim();
             }
             catch (Exception e)
             {
                 MyTools.BackgroundLog("Try Connect:" + e);
-                return MessageBox.Show($"Error: 尝试获取公网IP地址失败(WhatMyIP-API){Environment.NewLine}点击“确定”以重试连接,点击“取消”放弃连接使用预设地址。{Environment.NewLine}Original error: "
-                                              + e.Message, @"错误", MessageBoxButton.OKCancel) == MessageBoxResult.OK
-                    ? GetIntIp() : IPAddress.Any.ToString();
+                try
+                {
+                    return new MyCurl.MIpBkWebClient().DownloadString(UrlSettings.WhatMyIpApi).Trim();
+                }
+                catch (Exception exception)
+                {
+                    MyTools.BackgroundLog("Try Connect:" + exception);
+                    return MessageBox.Show($"Error: 尝试获取公网IP地址失败(WhatMyIP-API){Environment.NewLine}点击“确定”以重试连接,点击“取消”放弃连接使用预设地址。{Environment.NewLine}Original error: "
+                                           + exception.Message, @"错误", MessageBoxButton.OKCancel) == MessageBoxResult.OK
+                        ? GetIntIp() : IPAddress.Any.ToString();
+                }
+            }
+        }
+
+        public static IPAddress ResolveNameIpAddress(string name)
+        {
+            if (IPAddress.TryParse(name.TrimEnd('.'), out _)) return IPAddress.Parse(name.TrimEnd('.'));
+            while (true)
+            {
+                try
+                {
+                    DnsRecordBase ipMsg;
+                    if (DnsSettings.StartupOverDoH)
+                        ipMsg = QueryResolve.ResolveOverHttpsByDnsJson(IPAddress.Any.ToString(),
+                            name, "https://1.0.0.1/dns-query", DnsSettings.ProxyEnable, DnsSettings.WProxy).list[0];
+                    else
+                        ipMsg = new DnsClient(DnsSettings.SecondDnsIp, 5000).Resolve(DomainName.Parse(name))
+                            .AnswerRecords[0];
+
+                    switch (ipMsg.RecordType)
+                    {
+                        case RecordType.A when ipMsg is ARecord msg1:
+                            return msg1.Address;
+                        case RecordType.CName:
+                        {
+                            if (ipMsg is CNameRecord msg) name = msg.CanonicalName.ToString();
+                            break;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    try
+                    {
+                        var ipMsg = QueryResolve.ResolveOverHttpsByDnsJson(IPAddress.Any.ToString(),
+                            name, "https://1.0.0.1/dns-query", DnsSettings.ProxyEnable, DnsSettings.WProxy).list[0];
+                        switch (ipMsg.RecordType)
+                        {
+                            case RecordType.A when ipMsg is ARecord msg1:
+                                return msg1.Address;
+                            case RecordType.CName:
+                            {
+                                if (ipMsg is CNameRecord msg) name = msg.CanonicalName.ToString();
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        MyTools.BackgroundLog(exception.ToString());
+                        return IPAddress.Any;
+                    }
+                    MyTools.BackgroundLog(e.ToString());
+                }
             }
         }
 
@@ -76,7 +161,7 @@ namespace AuroraGUI.Tools
                 else if (locStr.Contains("\"countryCode\""))
                     countryCode = json.AsObjectGetString("countryCode");
                 else
-                    countryCode = "Unknown";
+                    countryCode = "";
 
                 if (locStr.Contains("\"organization\""))
                     organization = json.AsObjectGetString("organization");
@@ -86,6 +171,18 @@ namespace AuroraGUI.Tools
                     organization = json.AsObjectGetString("org");
                 else
                     organization = "";
+
+                if (!organization.ToUpper().Contains("AS") && locStr.Contains("\"asn\""))
+                {
+                    try
+                    {
+                        organization = $"AS{json.AsObjectGetInt("asn")} {organization}";
+                    }
+                    catch
+                    {
+                        organization = $"AS{json.AsObjectGetString("asn")} {organization}";
+                    }
+                }
 
                 if (onlyCountryCode) return countryCode;
                 return countryCode + " " + organization;

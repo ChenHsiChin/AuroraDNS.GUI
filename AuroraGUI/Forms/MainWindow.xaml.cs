@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Runtime.Caching;
 using System.Security.Principal;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -37,8 +38,8 @@ namespace AuroraGUI
         public static IPAddress IntIPAddr = IPAddress.Any;
         public static IPAddress LocIPAddr = IPAddress.Any;
         public static NotifyIcon NotifyIcon;
-        private DnsServer MDnsServer;
-        private BackgroundWorker MDnsSvrWorker = new BackgroundWorker(){WorkerSupportsCancellation = true};
+        private static DnsServer MDnsServer;
+        private Task MDnsSvrTask = new Task(() => MDnsServer.Start());
 
         public MainWindow()
         {
@@ -66,6 +67,40 @@ namespace AuroraGUI
                 //HongKong SAR
                 UrlSettings.MDnsList = "https://cdn.jsdelivr.net/gh/mili-tan/AuroraDNS.GUI/List/L10N/DNS-HK.list";
 
+            if (!File.Exists($"{SetupBasePath}config.json"))
+            {
+                if (MyTools.IsBadSoftExist())
+                    MessageBox.Show("Tips: AuroraDNS 强烈不建议您使用国产安全软件产品！");
+                if (!MyTools.IsNslookupLocDns())
+                {
+                    var msgResult =
+                        MessageBox.Show(
+                            "Question: 初次启动，是否要将您的系统默认 DNS 服务器设为 AuroraDNS?"
+                            , "Question", MessageBoxButton.OKCancel);
+                    if (msgResult == MessageBoxResult.OK) IsSysDns_OnClick(null, null);
+                }
+            }
+
+            if (!File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\AuroraDNS.UrlReged"))
+            {
+                try
+                {
+                    UrlReg.Reg("doh");
+                    UrlReg.Reg("dns-over-https");
+                    UrlReg.Reg("aurora-doh-list");
+
+                    File.Create(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                                "\\AuroraDNS.UrlReged");
+                    File.SetAttributes(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                        "\\AuroraDNS.UrlReged", FileAttributes.Hidden);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+
             try
             {
                 if (File.Exists($"{SetupBasePath}url.json"))
@@ -81,18 +116,25 @@ namespace AuroraGUI
                 if (DnsSettings.ChinaListEnable && File.Exists("china.list"))
                     DnsSettings.ReadChinaList(SetupBasePath + "china.list");
             }
+            catch (UnauthorizedAccessException e)
+            {
+                MessageBoxResult msgResult =
+                    MessageBox.Show(
+                        "Error: 尝试读取配置文件权限不足或IO安全故障，点击确定现在尝试以管理员权限启动。点击取消中止程序运行。" +
+                        $"{Environment.NewLine}Original error: {e}", "错误", MessageBoxButton.OKCancel);
+                if (msgResult == MessageBoxResult.OK) RunAsAdmin();
+                else Close();
+            }
             catch (Exception e)
             {
                 MessageBox.Show($"Error: 尝试读取配置文件错误{Environment.NewLine}Original error: {e}");
             }
-
+            
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11;
+            if (DnsSettings.AllowSelfSignedCert)
+                ServicePointManager.ServerCertificateValidationCallback +=
+                    (sender, cert, chain, sslPolicyErrors) => true;
 
-//            if (false)
-//                ServicePointManager.ServerCertificateValidationCallback +=
-//                    (sender, cert, chain, sslPolicyErrors) => true;
-//                //强烈不建议 忽略 TLS 证书安全错误
-//
 //            switch (0.0)
 //            {
 //                case 1:
@@ -111,15 +153,20 @@ namespace AuroraGUI
 
             MDnsServer = new DnsServer(DnsSettings.ListenIp, 10, 10);
             MDnsServer.QueryReceived += QueryResolve.ServerOnQueryReceived;
-            MDnsSvrWorker.DoWork += (sender, args) => MDnsServer.Start();
-            MDnsSvrWorker.Disposed += (sender, args) => MDnsServer.Stop();
+            //MDnsSvrWorker.DoWork += (sender, args) => MDnsServer.Start();
+            //MDnsSvrWorker.Disposed += (sender, args) => MDnsServer.Stop();
 
             using (BackgroundWorker worker = new BackgroundWorker())
             {
                 worker.DoWork += (sender, args) =>
                 {
                     LocIPAddr = IPAddress.Parse(IpTools.GetLocIp());
-                    IntIPAddr = IPAddress.Parse(IpTools.GetIntIp());
+                    if (!(Equals(DnsSettings.EDnsIp, IPAddress.Any) && DnsSettings.EDnsCustomize))
+                    {
+                        IntIPAddr = IPAddress.Parse(IpTools.GetIntIp());
+                        var local = IpTools.GeoIpLocal(IntIPAddr.ToString());
+                        Dispatcher?.Invoke(() => { TitleTextItem.Header = $"{IntIPAddr}{Environment.NewLine}{local}"; });
+                    }
 
                     try
                     {
@@ -146,8 +193,8 @@ namespace AuroraGUI
             WinFormMenuItem showItem = new WinFormMenuItem("最小化 / 恢复", MinimizedNormal);
             WinFormMenuItem restartItem = new WinFormMenuItem("重新启动", (sender, args) =>
             {
-                if (MDnsSvrWorker.IsBusy)
-                    MDnsSvrWorker.Dispose();
+                if (!MDnsSvrTask.IsCompleted)
+                    MDnsServer.Stop();
                 Process.Start(new ProcessStartInfo {FileName = GetType().Assembly.Location});
                 Environment.Exit(Environment.ExitCode);
             });
@@ -163,22 +210,91 @@ namespace AuroraGUI
             WinFormMenuItem abootItem = new WinFormMenuItem("关于…", (sender, args) => new AboutWindow().Show());
             WinFormMenuItem updateItem = new WinFormMenuItem("检查更新…", (sender, args) => MyTools.CheckUpdate(GetType().Assembly.Location));
             WinFormMenuItem settingsItem = new WinFormMenuItem("设置…", (sender, args) => new SettingsWindow().Show());
+            WinFormMenuItem exitResetItem = new WinFormMenuItem("退出并重置系统 DNS", (sender, args) =>
+            {
+                try
+                {
+                    if (new WindowsPrincipal(WindowsIdentity.GetCurrent())
+                        .IsInRole(WindowsBuiltInRole.Administrator))
+                        SysDnsSet.ResetDns();
+                    else SysDnsSet.ResetDnsCmd();
+                    UrlReg.UnReg("doh");
+                    UrlReg.UnReg("dns-over-https");
+                    UrlReg.UnReg("aurora-doh-list");
+                    File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                                "\\AuroraDNS.UrlReged");
+                    if (DnsSettings.AutoCleanLogEnable)
+                    {
+                        foreach (var item in Directory.GetFiles($"{SetupBasePath}Log"))
+                            if (item != $"{SetupBasePath}Log" +
+                                $"\\{DateTime.Today.Year}{DateTime.Today.Month:00}{DateTime.Today.Day:00}.log")
+                                File.Delete(item);
+                        if (File.Exists(Path.GetTempPath() + "setdns.cmd"))
+                            File.Delete(Path.GetTempPath() + "setdns.cmd");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+
+                try
+                {
+                    Close();
+                    Environment.Exit(0);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    Process.GetProcessById(Process.GetCurrentProcess().Id).Kill();
+                }
+            });
             WinFormMenuItem exitItem = new WinFormMenuItem("退出", (sender, args) =>
             {
-                Close();
-                Environment.Exit(Environment.ExitCode);
+                try
+                {
+                    UrlReg.UnReg("doh");
+                    UrlReg.UnReg("dns-over-https");
+                    UrlReg.UnReg("aurora-doh-list");
+                    File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
+                                "\\AuroraDNS.UrlReged");
+                    if (DnsSettings.AutoCleanLogEnable)
+                    {
+                        foreach (var item in Directory.GetFiles($"{SetupBasePath}Log"))
+                            if (item != $"{SetupBasePath}Log" +
+                                $"\\{DateTime.Today.Year}{DateTime.Today.Month:00}{DateTime.Today.Day:00}.log")
+                                File.Delete(item);
+                        if (File.Exists(Path.GetTempPath() + "setdns.cmd"))
+                            File.Delete(Path.GetTempPath() + "setdns.cmd");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+
+                try
+                {
+                    Close();
+                    Environment.Exit(0);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    Process.GetProcessById(Process.GetCurrentProcess().Id).Kill();
+                }
             });
 
             NotifyIcon.ContextMenu =
                 new WinFormContextMenu(new[]
                 {
-                    showItem, notepadLogItem, new WinFormMenuItem("-"), abootItem, updateItem, settingsItem, new WinFormMenuItem("-"), restartItem, exitItem
+                    showItem, notepadLogItem, new WinFormMenuItem("-"), abootItem, updateItem, settingsItem,
+                    new WinFormMenuItem("-"), restartItem, exitResetItem, exitItem
                 });
 
             NotifyIcon.DoubleClick += MinimizedNormal;
 
-            if (MyTools.IsNslookupLocDns())
-                IsSysDns.ToolTip = "已设为系统 DNS";
+            IsSysDns.IsChecked = MyTools.IsNslookupLocDns();
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -236,17 +352,32 @@ namespace AuroraGUI
                 DnsEnable.IsEnabled = false;
                 ControlGrid.IsEnabled = false;
             }
+
+            if (Equals(DnsSettings.ListenIp, IPAddress.IPv6Any) ||
+                Equals(DnsSettings.ListenIp, IPAddress.IPv6Loopback))
+            {
+                new Fwder(Equals(DnsSettings.ListenIp, IPAddress.IPv6Any) ? IPAddress.Any : IPAddress.Loopback, 53,
+                    IPAddress.IPv6Loopback).Run();
+            }
+
+            IsLog.ToolTip = IsLog.IsChecked == true ? "记录日志 : 是" : "记录日志 : 否";
+            if (IsSysDns.IsChecked == true) IsSysDns.ToolTip = "已设为系统 DNS";
+            if (Equals(DnsSettings.ListenIp, IPAddress.Any)) IsGlobal.ToolTip = "当前监听 : 局域网";
+            else if (Equals(DnsSettings.ListenIp, IPAddress.Loopback)) IsGlobal.ToolTip = "当前监听 : 本地";
+            else IsGlobal.ToolTip = "当前监听 : " + DnsSettings.ListenIp;
         }
 
         private void IsGlobal_Checked(object sender, RoutedEventArgs e)
         {
             if (MyTools.PortIsUse(DnsSettings.ListenPort))
             {
-                MDnsSvrWorker.Dispose();
+                MDnsServer.Stop();
                 MDnsServer = new DnsServer(new IPEndPoint(IPAddress.Any, DnsSettings.ListenPort), 10, 10);
                 MDnsServer.QueryReceived += QueryResolve.ServerOnQueryReceived;
-                Snackbar.MessageQueue.Enqueue(new TextBlock() {Text = "监听地址: 局域网 " + IPAddress.Any});
-                MDnsSvrWorker.RunWorkerAsync();
+                Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "监听地址 : 局域网 " + IPAddress.Any});
+                MDnsSvrTask = new Task(() => MDnsServer.Start());
+                MDnsSvrTask.Start();
+                IsGlobal.ToolTip = "当前监听 : 局域网";
             }
         }
 
@@ -254,47 +385,13 @@ namespace AuroraGUI
         {
             if (MyTools.PortIsUse(DnsSettings.ListenPort))
             {
-                MDnsSvrWorker.Dispose();
+                MDnsServer.Stop();
                 MDnsServer = new DnsServer(new IPEndPoint(IPAddress.Loopback, DnsSettings.ListenPort), 10, 10);
                 MDnsServer.QueryReceived += QueryResolve.ServerOnQueryReceived;
-                Snackbar.MessageQueue.Enqueue(new TextBlock() {Text = "监听地址: 本地 " + IPAddress.Loopback});
-                MDnsSvrWorker.RunWorkerAsync();
-            }
-        }
-
-        private void IsSysDns_Checked(object sender, RoutedEventArgs e)
-        {
-            if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
-            {
-                SysDnsSet.SetDns("127.0.0.1", DnsSettings.SecondDnsIp.ToString());
-                Snackbar.MessageQueue.Enqueue(new TextBlock()
-                {
-                    Text = "主DNS:" + IPAddress.Loopback +
-                           Environment.NewLine +
-                           "辅DNS:" + DnsSettings.SecondDnsIp
-                });
-                IsSysDns.ToolTip = "已设为系统 DNS";
-            }
-            else
-            {
-                var snackbarMsg = new SnackbarMessage()
-                {
-                    Content = "权限不足",
-                    ActionContent = "Administrator权限运行",
-                };
-                snackbarMsg.ActionClick += RunAsAdmin_OnActionClick;
-                Snackbar.MessageQueue.Enqueue(snackbarMsg);
-                IsSysDns.IsChecked = false;
-            }
-        }
-
-        private void IsSysDns_Unchecked(object sender, RoutedEventArgs e)
-        {
-            if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
-            {
-                SysDnsSet.ResetDns();
-                Snackbar.MessageQueue.Enqueue(new TextBlock() { Text = "已将 DNS 重置为自动获取" });
-                IsSysDns.ToolTip = "设为系统 DNS";
+                Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "监听地址 : 本地 " + IPAddress.Loopback});
+                MDnsSvrTask = new Task(() => MDnsServer.Start());
+                MDnsSvrTask.Start();
+                IsGlobal.ToolTip = "当前监听 : 本地";
             }
         }
 
@@ -302,20 +399,23 @@ namespace AuroraGUI
         {
             DnsSettings.DebugLog = true;
             if (MyTools.PortIsUse(DnsSettings.ListenPort))
-                Snackbar.MessageQueue.Enqueue(new TextBlock() {Text = "记录日志:是"});
+                Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "记录日志 : 是" });
+            IsLog.ToolTip = "记录日志 : 是";
         }
 
         private void IsLog_Unchecked(object sender, RoutedEventArgs e)
         {
             DnsSettings.DebugLog = false;
             if (MyTools.PortIsUse(DnsSettings.ListenPort))
-                Snackbar.MessageQueue.Enqueue(new TextBlock() {Text = "记录日志:否"});
+                Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "记录日志 : 否" });
+            IsLog.ToolTip = "记录日志 : 否";
         }
 
         private void DnsEnable_Checked(object sender, RoutedEventArgs e)
         {
-            MDnsSvrWorker.RunWorkerAsync();
-            if (MDnsSvrWorker.IsBusy)
+            MDnsSvrTask = new Task(() => MDnsServer.Start());
+            MDnsSvrTask.Start();
+            if (!MDnsSvrTask.IsCompleted)
             {
                 Snackbar.MessageQueue.Enqueue(new TextBlock() { Text = "DNS 服务器已启动" });
                 NotifyIcon.Text = @"AuroraDNS - Running";
@@ -324,8 +424,8 @@ namespace AuroraGUI
 
         private void DnsEnable_Unchecked(object sender, RoutedEventArgs e)
         {
-            MDnsSvrWorker.Dispose();
-            if (!MDnsSvrWorker.IsBusy)
+            MDnsServer.Stop();
+            if (!MDnsSvrTask.IsCompleted)
             {
                 Snackbar.MessageQueue.Enqueue(new TextBlock() { Text = "DNS 服务器已停止" });
                 NotifyIcon.Text = @"AuroraDNS - Stop";
@@ -334,17 +434,22 @@ namespace AuroraGUI
 
         private void SettingButton_Click(object sender, RoutedEventArgs e)
         {
-            new SettingsWindow().ShowDialog();
-
-            IsLog.IsChecked = DnsSettings.DebugLog;
-            IsGlobal.IsChecked = Equals(DnsSettings.ListenIp, IPAddress.Any);
+            var settingsWindow = new SettingsWindow();
+            settingsWindow.Closed += (o, args) =>
+            {
+                IsLog.IsChecked = DnsSettings.DebugLog;
+                IsGlobal.IsChecked = Equals(DnsSettings.ListenIp, IPAddress.Any);
+                //IsLog.ToolTip = IsLog.IsChecked.Value ? "记录日志 : 是" : "记录日志 : 否";
+                //IsGlobal.ToolTip = Equals(DnsSettings.ListenIp, IPAddress.Any) ? "当前监听 : 局域网" : "当前监听 : 本地";
+            };
+            settingsWindow.Show();
         }
 
-        private void RunAsAdmin_OnActionClick(object sender, RoutedEventArgs e)
+        public void RunAsAdmin()
         {
             try
             {
-                MDnsSvrWorker.Dispose();
+                MDnsServer.Stop();
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = GetType().Assembly.Location,
@@ -381,7 +486,7 @@ namespace AuroraGUI
             Storyboard.SetTargetProperty(fadeInAnimation, new PropertyPath(OpacityProperty));
             fadeInStoryboard.Children.Add(fadeInAnimation);
 
-            Dispatcher.BeginInvoke(new Action(fadeInStoryboard.Begin), DispatcherPriority.Render, null);
+            Dispatcher?.BeginInvoke(new Action(fadeInStoryboard.Begin), DispatcherPriority.Render, null);
         }
 
         private void MinimizedNormal(object sender, EventArgs e)
@@ -398,13 +503,54 @@ namespace AuroraGUI
             }
         }
 
-        private void Window_Closed(object sender, EventArgs e)
+        private void IsSysDns_OnClick(object sender, RoutedEventArgs e)
         {
-            if (!DnsSettings.AutoCleanLogEnable) return;
-            foreach (var item in Directory.GetFiles($"{SetupBasePath}Log"))
-                if (item != $"{SetupBasePath}Log" +
-                    $"\\{DateTime.Today.Year}{DateTime.Today.Month:00}{DateTime.Today.Day:00}.log")
-                    File.Delete(item);
+            try
+            {
+                if (MyTools.IsNslookupLocDns())
+                {
+                    if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
+                    {
+                        SysDnsSet.ResetDns();
+                        Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "已将 DNS 重置为自动获取"});
+                    }
+                    else
+                    {
+                        SysDnsSet.ResetDnsCmd();
+                        Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "已通过 Netsh 将 DNS 重置为自动获取"});
+                    }
+
+                    IsSysDns.ToolTip = "设为系统 DNS";
+                    IsSysDns.IsChecked = false;
+                }
+                else
+                {
+                    if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(
+                        WindowsBuiltInRole.Administrator))
+                    {
+                        SysDnsSet.SetDns(IPAddress.Loopback.ToString(), DnsSettings.SecondDnsIp.ToString());
+                        IsSysDns.ToolTip = "已设为系统 DNS";
+                    }
+                    else
+                    {
+                        SysDnsSet.SetDnsCmd(IPAddress.Loopback.ToString(), DnsSettings.SecondDnsIp.ToString());
+                        Snackbar.MessageQueue.Enqueue(new TextBlock {Text = "已通过 Netsh 设为系统 DNS"});
+                    }
+
+                    Snackbar.MessageQueue.Enqueue(new TextBlock
+                    {
+                        Text = "主DNS : " + IPAddress.Loopback +
+                               Environment.NewLine +
+                               "辅DNS : " + DnsSettings.SecondDnsIp
+                    });
+
+                    IsSysDns.ToolTip = "已设为系统 DNS";
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(exception.ToString());
+            }
         }
     }
 }

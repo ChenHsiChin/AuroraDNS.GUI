@@ -10,6 +10,7 @@ using System.Windows.Data;
 using System.Windows.Media.Effects;
 using AuroraGUI.DnsSvr;
 using AuroraGUI.Tools;
+using MaterialDesignThemes.Wpf;
 
 namespace AuroraGUI
 {
@@ -52,27 +53,38 @@ namespace AuroraGUI
                             new SpeedList
                             {
                                 Server = item.Server, Name = item.Name, DelayTime = 0,
-                                Asn = IpTools.GeoIpLocal(item.Server)
+                                Asn = IpTools.GeoIpLocal(item.Server).Trim()
                             });
                         continue;
                     }
 
-                    if (TypeDNS)
+                    try
                     {
-                        delayTime = Ping.MPing(item.Server).Average();
-                        if (delayTime == 0)
-                            delayTime = Ping.Tcping(item.Server, 53).Average();
-                    }
-                    else
-                        delayTime = Ping.Curl(ListStrings[i].Split('*', ',')[0].Trim(), "github.io").Average();
-
-                    bgWorker.ReportProgress(i++,
-                        new SpeedList
+                        if (TypeDNS)
                         {
-                            Server = item.Server, Name = item.Name,
-                            DelayTime = Convert.ToInt32(delayTime),
-                            Asn = IpTools.GeoIpLocal(item.Server)
-                        });
+                            //delayTime = Ping.MPing(item.Server).Average();
+                            //if (delayTime == 0)
+                            //    delayTime = Ping.Tcping(item.Server, 53).Average();
+                            //var dnsDelayTime = Ping.DnsTest(item.Server).Average();
+                            //if (dnsDelayTime > delayTime) delayTime = dnsDelayTime;
+                            delayTime = Math.Round(Ping.DnsTest(item.Server).Average(), 2);
+                        }
+                        else
+                            delayTime = Math.Round(Ping.Tcping(item.Server, 443).Average(), 2);
+
+                        bgWorker.ReportProgress(i++,
+                            new SpeedList
+                            {
+                                Server = item.Server,
+                                Name = item.Name,
+                                DelayTime = delayTime,
+                                Asn = IpTools.GeoIpLocal(item.Server).Trim()
+                            });
+                    }
+                    catch (Exception exception)
+                    {
+                        Console.WriteLine(exception);
+                    }
                 }
             };
             bgWorker.ProgressChanged += (o, args) =>
@@ -99,17 +111,26 @@ namespace AuroraGUI
                 {
                     ListStrings = new WebClient().DownloadString(TypeDNS ? UrlSettings.MDnsList : UrlSettings.MDohList)
                         .Split('\n').ToList();
+                    if (string.IsNullOrWhiteSpace(ListStrings[ListStrings.Count - 1]))
+                        ListStrings.RemoveAt(ListStrings.Count - 1);
+                    args.Result = true;
                 }
                 catch (Exception exception)
                 {
                     MyTools.BackgroundLog(@"| Download String failed : " + exception);
+                    args.Result = false;
                 }
-
-                if (string.IsNullOrWhiteSpace(ListStrings[ListStrings.Count - 1]))
-                    ListStrings.RemoveAt(ListStrings.Count - 1);
             };
             bgWorker.RunWorkerCompleted += (o, args) =>
             {
+                if (!(bool)args.Result)
+                {
+                    Grid.Effect = null;
+                    Snackbar.IsActive = true;
+                    Snackbar.Message = new SnackbarMessage() {Content = "获取列表内容失败，请检查互联网连接。"};
+                    return;
+                }
+
                 try
                 {
                     if (File.Exists($"{MainWindow.SetupBasePath}dns.list") && TypeDNS)
@@ -125,7 +146,7 @@ namespace AuroraGUI
                         {
                             SpeedListView.Items.Add(new SpeedList
                             {
-                                Server = TypeDNS ? item.Split('*', ',')[0].Trim() : item.Split('*', ',')[0].Trim().Split('/', ':')[3],
+                                Server = TypeDNS ? item.Split('*', ',')[0].Trim() : new Uri(item.Split('*', ',')[0].Trim()).Host,
                                 Name = item.Contains('*') || item.Contains(',') ? item.Split('*', ',')[1].Trim() : ""
                             });
                         }
@@ -138,6 +159,7 @@ namespace AuroraGUI
                 catch (Exception exception)
                 {
                     MyTools.BackgroundLog(@"| Read String failed : " + exception);
+                    MessageBox.Show($"Error: 尝试载入列表失败{Environment.NewLine}Original error: {exception}");
                 }
             };
             bgWorker.RunWorkerAsync();
